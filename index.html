@@ -4,12 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Movie Night with Us</title>
-  
-  <!-- Add Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-  
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -25,6 +19,7 @@
       background-color: #6c5ce7;
       color: white;
       border-radius: 10px;
+      margin-bottom: 20px;
     }
 
     form {
@@ -59,6 +54,11 @@
       border-radius: 5px;
       cursor: pointer;
       font-weight: bold;
+      transition: background-color 0.3s;
+    }
+
+    .button-group button:hover {
+      background-color: #5d4ae0;
     }
 
     section {
@@ -78,6 +78,7 @@
       font-weight: bold;
       cursor: pointer;
       color: #e0e0ff;
+      padding: 10px;
     }
 
     ul {
@@ -113,6 +114,11 @@
       border-radius: 3px;
       padding: 5px;
       cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .remove-btn:hover {
+      background-color: #b02525;
     }
 
     .status-message {
@@ -120,50 +126,68 @@
       margin: 10px 0;
       color: #6c5ce7;
       font-weight: bold;
+      min-height: 24px;
     }
 
     .loading {
       opacity: 0.7;
       pointer-events: none;
     }
+
+    .firebase-loading {
+      text-align: center;
+      padding: 20px;
+      color: #6c5ce7;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>🎥 Movie Night Picks</h1>
-    <p>Movies we want to watch together 💜🖤</p>
-  </header>
+  <div id="firebase-loading" class="firebase-loading">
+    <p>Loading Firebase...</p>
+  </div>
 
-  <div id="statusMessage" class="status-message"></div>
+  <div id="app-content" style="display: none;">
+    <header>
+      <h1>🎥 Movie Night Picks</h1>
+      <p>Movies we want to watch together 💜🖤</p>
+    </header>
 
-  <form id="movieForm">
-    <input type="text" id="movieInput" placeholder="Add a movie..." required />
-    <div class="button-group">
-      <button type="button" onclick="addMovie('seth')">Seth</button>
-      <button type="button" onclick="addMovie('morgan')">Morgan</button>
-      <button type="button" onclick="addMovie('together')">Together</button>
-    </div>
-  </form>
+    <div id="statusMessage" class="status-message"></div>
 
-  <section>
-    <details open>
-      <summary>🎬 Movies Seth should watch</summary>
-      <ul id="sethList"></ul>
-    </details>
+    <form id="movieForm">
+      <input type="text" id="movieInput" placeholder="Add a movie..." required />
+      <div class="button-group">
+        <button type="button" id="sethBtn">Seth</button>
+        <button type="button" id="morganBtn">Morgan</button>
+        <button type="button" id="togetherBtn">Together</button>
+      </div>
+    </form>
 
-    <details open>
-      <summary>🎬 Movies Morgan should watch</summary>
-      <ul id="morganList"></ul>
-    </details>
+    <section>
+      <details open>
+        <summary>🎬 Movies Seth should watch</summary>
+        <ul id="sethList"></ul>
+      </details>
 
-    <details open>
-      <summary>🎬 Movies we watch together</summary>
-      <ul id="togetherList"></ul>
-    </details>
-  </section>
+      <details open>
+        <summary>🎬 Movies Morgan should watch</summary>
+        <ul id="morganList"></ul>
+      </details>
 
-  <script>
-    // Firebase configuration and initialization
+      <details open>
+        <summary>🎬 Movies we watch together</summary>
+        <ul id="togetherList"></ul>
+      </details>
+    </section>
+  </div>
+
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCnLt2ApvPxspWC2vgcKGlvdNN7b99oxUE",
       authDomain: "movienight-960e4.firebaseapp.com",
@@ -175,27 +199,66 @@
     };
 
     // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const analytics = firebase.analytics();
-    const db = firebase.firestore();
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getFirestore(app);
 
-    // DOM elements
-    const input = document.getElementById('movieInput');
-    const statusMessage = document.getElementById('statusMessage');
-    const lists = {
-      seth: document.getElementById('sethList'),
-      morgan: document.getElementById('morganList'),
-      together: document.getElementById('togetherList')
-    };
-
+    // Global variables
     const OMDB_API_KEY = '7a903eba';
+    
+    // DOM elements
+    let input, statusMessage, lists;
 
-    // Event listeners
-    input.addEventListener("keypress", function (e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-      }
-    });
+    // Initialize the application
+    function initApp() {
+      // Show app content
+      document.getElementById('firebase-loading').style.display = 'none';
+      document.getElementById('app-content').style.display = 'block';
+
+      // Get DOM elements
+      input = document.getElementById('movieInput');
+      statusMessage = document.getElementById('statusMessage');
+      lists = {
+        seth: document.getElementById('sethList'),
+        morgan: document.getElementById('morganList'),
+        together: document.getElementById('togetherList')
+      };
+
+      // Set up button event listeners
+      document.getElementById('sethBtn').addEventListener('click', () => addMovie('seth'));
+      document.getElementById('morganBtn').addEventListener('click', () => addMovie('morgan'));
+      document.getElementById('togetherBtn').addEventListener('click', () => addMovie('together'));
+
+      // Set up input event listener
+      input.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+        }
+      });
+
+      // Load data
+      loadFromFirebase();
+      
+      // Set up real-time listener for changes
+      const unsubscribe = onSnapshot(doc(db, "movieLists", "main"), (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          clearAllLists();
+          
+          for (const category in data) {
+            if (lists[category]) {
+              data[category].forEach(movie => {
+                addMovieToDOM(category, movie);
+              });
+            }
+          }
+          showStatus('List updated from cloud!');
+        }
+      }, (error) => {
+        console.error("Error setting up real-time listener:", error);
+        showStatus('Error connecting to cloud', true);
+      });
+    }
 
     // Show status message
     function showStatus(message, isError = false) {
@@ -226,7 +289,7 @@
           });
         }
         
-        await db.collection('movieLists').doc('main').set(data);
+        await setDoc(doc(db, "movieLists", "main"), data);
         showStatus('Saved to cloud!');
       } catch (error) {
         console.error("Error saving to Firebase:", error);
@@ -242,16 +305,18 @@
     async function loadFromFirebase() {
       setLoading(true);
       try {
-        const doc = await db.collection('movieLists').doc('main').get();
+        const docSnap = await getDoc(doc(db, "movieLists", "main"));
         
-        if (doc.exists) {
-          const data = doc.data();
+        if (docSnap.exists()) {
+          const data = docSnap.data();
           clearAllLists();
           
           for (const category in data) {
-            data[category].forEach(movie => {
-              addMovieToDOM(category, movie);
-            });
+            if (lists[category]) {
+              data[category].forEach(movie => {
+                addMovieToDOM(category, movie);
+              });
+            }
           }
           showStatus('Loaded from cloud!');
         } else {
@@ -319,7 +384,7 @@
       const li = document.createElement('li');
       li.dataset.id = movie.id;
       
-      if (movie.poster) {
+      if (movie.poster && movie.poster !== 'N/A') {
         const img = document.createElement('img');
         img.src = movie.poster;
         img.alt = `${movie.title} Poster`;
@@ -364,37 +429,22 @@
       } catch (error) {
         console.error("Error fetching movie data:", error);
         showStatus('Error fetching movie data', true);
+        
+        // Fallback: add movie without poster if API fails
+        const movieData = {
+          id: Date.now().toString(),
+          title: movieTitle,
+          poster: ''
+        };
+        addMovieToDOM(category, movieData);
+        await saveToFirebase();
       } finally {
         setLoading(false);
       }
     }
 
-    // Initialize the app
-    async function initApp() {
-      // Try to load from Firebase first, then fallback to localStorage
-      await loadFromFirebase();
-      
-      // Set up real-time listener for changes
-      db.collection('movieLists').doc('main')
-        .onSnapshot((doc) => {
-          if (doc.exists) {
-            const data = doc.data();
-            clearAllLists();
-            
-            for (const category in data) {
-              data[category].forEach(movie => {
-                addMovieToDOM(category, movie);
-              });
-            }
-            showStatus('List updated from cloud!');
-          }
-        }, (error) => {
-          console.error("Error setting up real-time listener:", error);
-        });
-    }
-
-    // Load the app when the page is ready
-    window.onload = initApp;
+    // Initialize the app when Firebase is ready
+    initApp();
   </script>
 </body>
 </html>
