@@ -130,18 +130,20 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyDm0X9U4SiwHEejpb_Ii97J2SeUeEjNtU0",
-      authDomain: "movienight-1f049.firebaseapp.com",
-      projectId: "movienight-1f049",
-      storageBucket: "movienight-1f049.firebasestorage.app",
-      messagingSenderId: "382135324432",
-      appId: "1:382135324432:web:96eed2b83191d5250d1f95",
-      measurementId: "G-ZP9PNL1SVR"
+      apiKey: "AIzaSyCnLt2ApvPxspWC2vgcKGlvdNN7b99oxUE",
+      authDomain: "movienight-960e4.firebaseapp.com",
+      projectId: "movienight-960e4",
+      storageBucket: "movienight-960e4.firebasestorage.app",
+      messagingSenderId: "344249799299",
+      appId: "1:344249799299:web:5616a123638952913dc1b6",
+      measurementId: "G-S0L4DN8M7D"
     };
 
     const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
     const db = getDatabase(app);
 
     const input = document.getElementById('movieInput');
@@ -157,7 +159,7 @@
       }
     });
 
-      window.addMovie = async function(category) {
+    window.addMovie = async function(category) {
       const title = input.value.trim();
       if (!title) return;
 
@@ -201,4 +203,5 @@
   </script>
 </body>
 </html>
+
 
