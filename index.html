@@ -182,7 +182,6 @@
   </div>
 
   <script type="module">
-    // Import the functions you need from the SDKs you need
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
     import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
@@ -192,7 +191,7 @@
       apiKey: "AIzaSyCnLt2ApvPxspWC2vgcKGlvdNN7b99oxUE",
       authDomain: "movienight-960e4.firebaseapp.com",
       projectId: "movienight-960e4",
-      storageBucket: "movienight-960e4.firebasestorage.app",
+      storageBucket: "movienight-960e4.appspot.com", // ✅ fixed
       messagingSenderId: "344249799299",
       appId: "1:344249799299:web:5616a123638952913dc1b6",
       measurementId: "G-S0L4DN8M7D"
@@ -200,22 +199,23 @@
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
+    let analytics;
+    try {
+      analytics = getAnalytics(app);
+    } catch (e) {
+      console.log("Analytics not supported locally");
+    }
     const db = getFirestore(app);
 
-    // Global variables
     const OMDB_API_KEY = '7a903eba';
-    
+
     // DOM elements
     let input, statusMessage, lists;
 
-    // Initialize the application
     function initApp() {
-      // Show app content
       document.getElementById('firebase-loading').style.display = 'none';
       document.getElementById('app-content').style.display = 'block';
 
-      // Get DOM elements
       input = document.getElementById('movieInput');
       statusMessage = document.getElementById('statusMessage');
       lists = {
@@ -224,27 +224,22 @@
         together: document.getElementById('togetherList')
       };
 
-      // Set up button event listeners
       document.getElementById('sethBtn').addEventListener('click', () => addMovie('seth'));
       document.getElementById('morganBtn').addEventListener('click', () => addMovie('morgan'));
       document.getElementById('togetherBtn').addEventListener('click', () => addMovie('together'));
 
-      // Set up input event listener
-      input.addEventListener("keypress", function (e) {
+      input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
           e.preventDefault();
         }
       });
 
-      // Load data
       loadFromFirebase();
-      
-      // Set up real-time listener for changes
-      const unsubscribe = onSnapshot(doc(db, "movieLists", "main"), (doc) => {
-        if (doc.exists()) {
-          const data = doc.data();
+
+      onSnapshot(doc(db, "movieLists", "main"), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
           clearAllLists();
-          
           for (const category in data) {
             if (lists[category]) {
               data[category].forEach(movie => {
@@ -255,26 +250,21 @@
           showStatus('List updated from cloud!');
         }
       }, (error) => {
-        console.error("Error setting up real-time listener:", error);
+        console.error("Realtime error:", error);
         showStatus('Error connecting to cloud', true);
       });
     }
 
-    // Show status message
     function showStatus(message, isError = false) {
       statusMessage.textContent = message;
       statusMessage.style.color = isError ? '#d63031' : '#6c5ce7';
-      setTimeout(() => {
-        statusMessage.textContent = '';
-      }, 3000);
+      setTimeout(() => { statusMessage.textContent = ''; }, 3000);
     }
 
-    // Set loading state
     function setLoading(isLoading) {
       document.body.classList.toggle('loading', isLoading);
     }
 
-    // Save to Firebase
     async function saveToFirebase() {
       setLoading(true);
       try {
@@ -284,33 +274,28 @@
           lists[category].querySelectorAll('li').forEach(li => {
             const title = li.querySelector('div')?.textContent || li.textContent;
             const poster = li.querySelector('img')?.src || '';
-            const id = li.dataset.id || Date.now().toString();
+            const id = li.dataset.id || crypto.randomUUID();
             data[category].push({ id, title, poster });
           });
         }
-        
         await setDoc(doc(db, "movieLists", "main"), data);
         showStatus('Saved to cloud!');
       } catch (error) {
-        console.error("Error saving to Firebase:", error);
+        console.error("Save error:", error);
         showStatus('Error saving to cloud', true);
-        // Fallback to localStorage
         saveToLocalStorage();
       } finally {
         setLoading(false);
       }
     }
 
-    // Load from Firebase
     async function loadFromFirebase() {
       setLoading(true);
       try {
         const docSnap = await getDoc(doc(db, "movieLists", "main"));
-        
         if (docSnap.exists()) {
           const data = docSnap.data();
           clearAllLists();
-          
           for (const category in data) {
             if (lists[category]) {
               data[category].forEach(movie => {
@@ -320,20 +305,17 @@
           }
           showStatus('Loaded from cloud!');
         } else {
-          // If no data in Firebase, try loading from localStorage
           loadFromLocalStorage();
         }
       } catch (error) {
-        console.error("Error loading from Firebase:", error);
+        console.error("Load error:", error);
         showStatus('Error loading from cloud', true);
-        // Fallback to localStorage
         loadFromLocalStorage();
       } finally {
         setLoading(false);
       }
     }
 
-    // Save to localStorage (fallback)
     function saveToLocalStorage() {
       const data = {};
       for (const category in lists) {
@@ -341,22 +323,19 @@
         lists[category].querySelectorAll('li').forEach(li => {
           const title = li.querySelector('div')?.textContent || li.textContent;
           const poster = li.querySelector('img')?.src || '';
-          const id = li.dataset.id || Date.now().toString();
+          const id = li.dataset.id || crypto.randomUUID();
           data[category].push({ id, title, poster });
         });
       }
       localStorage.setItem('movieLists', JSON.stringify(data));
     }
 
-    // Load from localStorage (fallback)
     function loadFromLocalStorage() {
       const dataStr = localStorage.getItem('movieLists');
       if (!dataStr) return;
-
       try {
         const data = JSON.parse(dataStr);
         clearAllLists();
-        
         for (const category in data) {
           if (lists[category]) {
             data[category].forEach(movie => {
@@ -366,31 +345,28 @@
         }
         showStatus('Loaded from local storage');
       } catch (error) {
-        console.error("Error loading from localStorage:", error);
+        console.error("LocalStorage error:", error);
       }
     }
 
-    // Clear all lists
     function clearAllLists() {
       for (const category in lists) {
         lists[category].innerHTML = '';
       }
     }
 
-    // Add movie to DOM
     function addMovieToDOM(category, movie) {
       if (!lists[category]) return;
-      
       const li = document.createElement('li');
       li.dataset.id = movie.id;
-      
+
       if (movie.poster && movie.poster !== 'N/A') {
         const img = document.createElement('img');
         img.src = movie.poster;
         img.alt = `${movie.title} Poster`;
         li.appendChild(img);
       }
-      
+
       const title = document.createElement('div');
       title.textContent = movie.title;
       li.appendChild(title);
@@ -407,35 +383,25 @@
       lists[category].appendChild(li);
     }
 
-    // Add movie function
     async function addMovie(category) {
       const movieTitle = input.value.trim();
       if (!movieTitle || !lists[category]) return;
-
       setLoading(true);
       try {
         const response = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(movieTitle)}&apikey=${OMDB_API_KEY}`);
         const data = await response.json();
-
         const movieData = {
-          id: Date.now().toString(),
+          id: crypto.randomUUID(),
           title: data.Response === "True" ? data.Title : movieTitle,
           poster: (data.Response === "True" && data.Poster !== "N/A") ? data.Poster : ''
         };
-
         addMovieToDOM(category, movieData);
         input.value = '';
         await saveToFirebase();
       } catch (error) {
-        console.error("Error fetching movie data:", error);
+        console.error("OMDB error:", error);
         showStatus('Error fetching movie data', true);
-        
-        // Fallback: add movie without poster if API fails
-        const movieData = {
-          id: Date.now().toString(),
-          title: movieTitle,
-          poster: ''
-        };
+        const movieData = { id: crypto.randomUUID(), title: movieTitle, poster: '' };
         addMovieToDOM(category, movieData);
         await saveToFirebase();
       } finally {
@@ -443,7 +409,6 @@
       }
     }
 
-    // Initialize the app when Firebase is ready
     initApp();
   </script>
 </body>
